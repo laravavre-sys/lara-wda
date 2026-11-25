@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA1100000000000000000001 /* FBMediaCommands.m in Sources */ = {isa = PBXBuildFile; fileRef = AA1100000000000000000002 /* FBMediaCommands.m */; };
+		AA1100000000000000000003 /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA1100000000000000000004 /* Photos.framework */; };
 		005B327C702EF47820887884 /* FBErrorBuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = EE3A18601CDE618F00DE4205 /* FBErrorBuilder.h */; };
 		00ABDDC324B060006EA182F7 /* FBScreen.m in Sources */ = {isa = PBXBuildFile; fileRef = 715AFAC01FFA29180053896D /* FBScreen.m */; };
 		0161F45997A981E47729DB25 /* RouteResponse.h in Headers */ = {isa = PBXBuildFile; fileRef = 01E7CFEBAD717FCF4BCDD383 /* RouteResponse.h */; };
@@ -1458,6 +1460,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA1100000000000000000002 /* FBMediaCommands.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FBMediaCommands.m; sourceTree = "<group>"; };
+		AA1100000000000000000005 /* FBMediaCommands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FBMediaCommands.h; sourceTree = "<group>"; };
+		AA1100000000000000000004 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
 		003AAAB9CB5FB38E45E05F6F /* XCUIDeviceEventAndStateInterface-Protocol.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "XCUIDeviceEventAndStateInterface-Protocol.h"; sourceTree = "<group>"; };
 		00834B3220005AD5A5ABEF7C /* XCUIApplicationManaging-Protocol.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "XCUIApplicationManaging-Protocol.h"; sourceTree = "<group>"; };
 		00B1F89716AFE04C8509B916 /* FBHTTPServer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = FBHTTPServer.h; sourceTree = "<group>"; };
@@ -2103,6 +2108,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA1100000000000000000003 /* Photos.framework in Frameworks */,
 				7155B40E224D5A850042A993 /* libAccessibility.tbd in Frameworks */,
 				7155B424224D5BA10042A993 /* XCTest.framework in Frameworks */,
 				716C9347224D540C004B8542 /* libxml2.tbd in Frameworks */,
@@ -2503,6 +2509,8 @@
 				EE9AB7641CAEDF0C008C271F /* FBUnknownCommands.h */,
 				EE9AB7651CAEDF0C008C271F /* FBUnknownCommands.m */,
 				71BB58ED2B96511800CB9BFE /* FBVideoCommands.h */,
+				AA1100000000000000000005 /* FBMediaCommands.h */,
+				AA1100000000000000000002 /* FBMediaCommands.m */,
 				71BB58EE2B96511800CB9BFE /* FBVideoCommands.m */,
 			);
 			name = Commands;
@@ -4734,6 +4742,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA1100000000000000000001 /* FBMediaCommands.m in Sources */,
 				EE158AC71CBD456F00A3E3F0 /* FBScreenshotCommands.m in Sources */,
 				7136A47A1E8918E60024FC3D /* XCUIElement+FBPickerWheel.m in Sources */,
 				6385F4A7220A40760095BBDB /* XCUIApplicationProcessDelay.m in Sources */,
