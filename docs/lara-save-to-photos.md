@@ -43,7 +43,7 @@ performChanges je asynchrónny. Handler čaká cez WDA run-loop spinner maximál
 
 ## Zostavenie a overenie
 
-Manuálny workflow používa štandardný macos-15 vo verejnom repozitári, build-for-testing, generic/platform=iOS a CODE_SIGNING_ALLOWED=NO. Oba Info.plist majú NSPhotoLibraryAddUsageDescription a UIFileSharingEnabled=true. Vylúčené sú iba top-level Frameworks, vnorený WebDriverAgentLib zostáva. Skript kontroluje skutočný archív: oba plisty, handler, endpoint aj link Photos.framework. Release má IPA a SHA256SUMS.txt; publikovaný v1 sa neprepisuje.
+Manuálny workflow používa štandardný macos-15 (predvolený) alebo macos-15-intel (záloha pri nedostatku ARM kapacity) vo verejnom repozitári, Xcode 16.4, build-for-testing, generic/platform=iOS a CODE_SIGNING_ALLOWED=NO. Oba Info.plist majú NSPhotoLibraryAddUsageDescription a UIFileSharingEnabled=true. Vylúčené sú iba top-level Frameworks, vnorený WebDriverAgentLib zostáva. Skript kontroluje skutočný archív: oba plisty, handler, endpoint aj link Photos.framework. Release má IPA a SHA256SUMS.txt; publikovaný v1 sa neprepisuje.
 
 Nie sú potrebné osobné tokeny ani Apple kľúče v repozitári. Workflow používa vstavaný krátkodobý GITHUB_TOKEN. Štandardné runnery vo verejných repozitároch sú bezplatné podľa https://docs.github.com/en/actions/concepts/billing-and-usage . Podpisovanie používa existujúce riešenie používateľa; nový platený účet tento build nevyžaduje.
 
