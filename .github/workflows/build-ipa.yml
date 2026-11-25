@@ -1,0 +1,62 @@
+name: Build Lara WDA IPA
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: lara-wda-release-v1
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.repository == 'laravavre-sys/lara-wda'
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned real-device runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/wda-build" \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO ARCHS=arm64 IPHONEOS_DEPLOYMENT_TARGET=15.0
+      - name: Package and validate IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/wda-build/Build/Products/Release-iphoneos/WebDriverAgentRunner-Runner.app"
+          test -d "$APP"
+          for PLIST in "$APP/Info.plist" "$APP/PlugIns/WebDriverAgentRunner.xctest/Info.plist"; do
+            plutil -replace NSPhotoLibraryAddUsageDescription -string 'Lara Studio ukladá fotky a videá do Galérie' "$PLIST"
+            plutil -replace UIFileSharingEnabled -bool true "$PLIST"
+            plutil -lint "$PLIST"
+          done
+          # Match Scripts/ci/build-real.sh: exclude ONLY top-level XCTest dependencies.
+          # Keep PlugIns/WebDriverAgentRunner.xctest/Frameworks/WebDriverAgentLib.framework.
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          ditto "$APP" "$RUNNER_TEMP/package/Payload/WebDriverAgentRunner-Runner.app"
+          cd "$RUNNER_TEMP/package"
+          zip -qr "$GITHUB_WORKSPACE/WebDriverAgentRunner-Runner.ipa" Payload \
+            -x 'Payload/WebDriverAgentRunner-Runner.app/Frameworks/*'
+          cd "$GITHUB_WORKSPACE"
+          python3 Scripts/ci/verify-lara-ipa.py WebDriverAgentRunner-Runner.ipa
+          shasum -a 256 WebDriverAgentRunner-Runner.ipa > SHA256SUMS.txt
+      - name: Publish v1 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release v1 already exists. Refusing to overwrite a published build.'
+            exit 1
+          fi
+          gh release create v1 WebDriverAgentRunner-Runner.ipa SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title 'Lara WDA v1 — Save to Photos' \
+            --notes "Unsigned arm64 WDA with POST /wda/saveToPhotos. Sign before installing. Source commit: $GITHUB_SHA. Device validation on iOS 17/18 is still required. See docs/lara-save-to-photos.md."
