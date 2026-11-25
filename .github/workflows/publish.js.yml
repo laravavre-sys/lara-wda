@@ -27,6 +27,7 @@ env:
 
 jobs:
   build_matrix:
+    if: github.repository == 'appium/WebDriverAgent'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
