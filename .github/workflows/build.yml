@@ -8,11 +8,11 @@ permissions:
   contents: write
 concurrency:
   group: lara-wda-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     if: github.repository == 'laravavre-sys/lara-wda'
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
