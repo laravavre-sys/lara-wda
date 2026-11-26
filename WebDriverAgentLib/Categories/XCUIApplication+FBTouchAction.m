@@ -157,7 +157,7 @@ static BOOL FBIsFinitePoint(CGPoint point)
   if (![self fb_synthesizeEvent:event error:error]) {
     return NO;
   }
-  [self fb_waitUntilStableWithTimeout:FBConfiguration.sharedInstance.animationCoolOffTimeout];
+  // Direct drag is latency-sensitive; event completion is sufficient.
   return YES;
 }
 

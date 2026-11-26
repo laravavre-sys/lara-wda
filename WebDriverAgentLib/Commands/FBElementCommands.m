@@ -9,6 +9,9 @@
 #import "FBElementCommands.h"
 
 #import "FBConfiguration.h"
+#import "FBXCTestDaemonsProxy.h"
+#import "XCUIApplication+FBHelpers.h"
+#import "XCSynthesizedEventRecord.h"
 #import "FBScreen.h"
 #import "XCUIScreen.h"
 #import "FBKeyboard.h"
@@ -108,6 +111,7 @@
 
     [[FBRoute POST:@"/wda/element/:uuid/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDrag:)],
     [[FBRoute POST:@"/wda/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDrag:)],
+    [[FBRoute POST:@"/wda/dragfromtoforduration"].withoutSession respondWithTarget:self action:@selector(handleDrag:)],
 
     [[FBRoute POST:@"/wda/element/:uuid/pressAndDragWithVelocity"] respondWithTarget:self action:@selector(handlePressAndDragWithVelocity:)],
     [[FBRoute POST:@"/wda/pressAndDragWithVelocity"] respondWithTarget:self action:@selector(handlePressAndDragCoordinateWithVelocity:)],
@@ -117,10 +121,12 @@
 
     [[FBRoute POST:@"/wda/element/:uuid/tap"] respondWithTarget:self action:@selector(handleTap:)],
     [[FBRoute POST:@"/wda/tap"] respondWithTarget:self action:@selector(handleTap:)],
+    [[FBRoute POST:@"/wda/tap"].withoutSession respondWithTarget:self action:@selector(handleTap:)],
 
     [[FBRoute POST:@"/wda/pickerwheel/:uuid/select"] respondWithTarget:self action:@selector(handleWheelSelect:)],
 #endif
     [[FBRoute POST:@"/wda/keys"] respondWithTarget:self action:@selector(handleKeys:)],
+    [[FBRoute POST:@"/wda/keys"].withoutSession respondWithTarget:self action:@selector(handleKeys:)],
   ];
 }
 
@@ -495,7 +501,37 @@
     return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.localizedDescription
                                                                        traceback:nil]);
   }
-  [target fb_swipeWithDirection:direction velocity:request.arguments[@"velocity"]];
+  BOOL isCoordinate = [target isKindOfClass:XCUICoordinate.class];
+  XCUIElement *anchor = isCoordinate ? [(XCUICoordinate *)target referencedElement] : (XCUIElement *)target;
+  CGRect bounds = anchor.wdFrame;
+  XCUICoordinate *coordinate = isCoordinate ? target : [anchor coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+  CGPoint start = coordinate.screenPoint;
+  CGPoint end = start;
+  NSString *normalized = direction.lowercaseString;
+  CGFloat distance = ([normalized isEqualToString:@"up"] || [normalized isEqualToString:@"down"])
+    ? bounds.size.height * 0.4 : bounds.size.width * 0.4;
+  if ([normalized isEqualToString:@"up"]) end.y -= distance;
+  if ([normalized isEqualToString:@"down"]) end.y += distance;
+  if ([normalized isEqualToString:@"left"]) end.x -= distance;
+  if ([normalized isEqualToString:@"right"]) end.x += distance;
+  end.x = MAX(CGRectGetMinX(bounds), MIN(CGRectGetMaxX(bounds), end.x));
+  end.y = MAX(CGRectGetMinY(bounds), MIN(CGRectGetMaxY(bounds), end.y));
+  CGFloat speed = request.arguments[@"velocity"] ? [request.arguments[@"velocity"] doubleValue] : 500;
+  if (!isfinite(start.x) || !isfinite(start.y) || !isfinite(end.x) || !isfinite(end.y) || !isfinite(speed) || speed <= 0 || CGRectIsEmpty(bounds)) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"Swipe requires finite coordinates, nonempty bounds and positive velocity" traceback:nil]);
+  }
+  XCUIApplication *application = [anchor isKindOfClass:XCUIApplication.class] ? (XCUIApplication *)anchor : anchor.application;
+  long long displayID = [anchor respondsToSelector:@selector(displayID)] ? anchor.displayID : 0;
+  XCSynthesizedEventRecord *event = [XCUIApplication fb_pressDragEventFromPoint:start
+                                                                 forDuration:0
+                                                                     toPoint:end
+                                                             pointsPerSecond:speed
+                                                         thenHoldForDuration:0
+                                                                   displayID:displayID
+                                                        interfaceOrientation:application.interfaceOrientation];
+  if (![FBXCTestDaemonsProxy synthesizeEventWithRecord:event error:&error]) {
+    return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:error.localizedDescription traceback:nil]);
+  }
   return FBResponseWithOK();
 }
 
@@ -507,7 +543,29 @@
     return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.localizedDescription
                                                                        traceback:nil]);
   }
-  [target tap];
+  // Resolve once, then send the same low-level event path used by Appium's drag implementation.
+  // Do not call -tap: XCTest re-resolves and waits for app idle before/after dispatch.
+  XCUICoordinate *coordinate = [target isKindOfClass:XCUICoordinate.class]
+    ? target
+    : [(XCUIElement *)target coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+  CGPoint point = coordinate.screenPoint;
+  if (!isfinite(point.x) || !isfinite(point.y)) {
+    return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:@"Cannot resolve tap coordinates" traceback:nil]);
+  }
+  XCUIElement *anchor = coordinate.referencedElement;
+  XCUIApplication *application = [anchor isKindOfClass:XCUIApplication.class]
+    ? (XCUIApplication *)anchor : anchor.application;
+  long long displayID = [anchor respondsToSelector:@selector(displayID)] ? anchor.displayID : 0;
+  XCSynthesizedEventRecord *event = [XCUIApplication fb_pressDragEventFromPoint:point
+                                                                 forDuration:0
+                                                                     toPoint:point
+                                                             pointsPerSecond:500
+                                                         thenHoldForDuration:0.05
+                                                                   displayID:displayID
+                                                        interfaceOrientation:application.interfaceOrientation];
+  if (![FBXCTestDaemonsProxy synthesizeEventWithRecord:event error:&error]) {
+    return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:error.localizedDescription traceback:nil]);
+  }
   return FBResponseWithOK();
 }
 
@@ -553,7 +611,18 @@
 
 + (id<FBResponsePayload>)handleKeys:(FBRouteRequest *)request
 {
-  NSString *textToType = [request.arguments[@"value"] componentsJoinedByString:@""];
+  id value = request.arguments[@"value"];
+  if (![value isKindOfClass:NSArray.class] && ![value isKindOfClass:NSString.class]) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"value must be a string or array of strings" traceback:nil]);
+  }
+  if ([value isKindOfClass:NSArray.class]) {
+    for (id part in value) {
+      if (![part isKindOfClass:NSString.class]) {
+        return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"value must contain strings only" traceback:nil]);
+      }
+    }
+  }
+  NSString *textToType = [value isKindOfClass:NSString.class] ? value : [value componentsJoinedByString:@""];
   NSUInteger frequency = [request.arguments[@"frequency"] unsignedIntegerValue] ?: FBConfiguration.sharedInstance.maxTypingFrequency;
   NSError *error;
   if (!FBTypeText(textToType, frequency, &error)) {
@@ -766,7 +835,7 @@ static const NSInteger DEFAULT_MAX_PICKER_ATTEMPTS = 25;
   FBElementCache *elementCache = request.session.elementCache;
   NSString *elementUuid = (NSString *)request.parameters[@"uuid"];
   return nil == elementUuid
-    ? request.session.activeApplication
+    ? (request.session.activeApplication ?: XCUIApplication.fb_activeApplication)
     : [elementCache elementForUUID:elementUuid checkStaleness:YES];
 }
 

@@ -48,6 +48,9 @@ extern NSString* const FBSessionWasKilledNotification;
 /*! Keeps cached visibility values for the current snapshots tree */
 @property (nonatomic, readonly) NSMutableDictionary<NSNumber *, NSMutableDictionary<NSString *, NSNumber *> *> *elementsVisibilityCache;
 
+/*! Update current, tested and subsequently launched apps together. */
+- (void)fb_setShouldWaitForQuiescence:(BOOL)value;
+
 + (nullable instancetype)activeSession;
 
 /**

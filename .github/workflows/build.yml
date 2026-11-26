@@ -1,0 +1,97 @@
+name: Build Lara WDA v2
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: lara-wda-release
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.repository == 'laravavre-sys/lara-wda'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select newest installed Xcode and iPhoneOS SDK
+        run: python3 Scripts/ci/select-latest-xcode.py
+      - name: Verify unchanged v1 media implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code v1 -- WebDriverAgentLib/Commands/FBMediaCommands.h WebDriverAgentLib/Commands/FBMediaCommands.m WebDriverAgent.xcodeproj/project.pbxproj
+          python3 Scripts/ci/test-lara-fast-defaults.py
+      - name: Build unsigned real-device runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/wda-build" \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO ARCHS=arm64 IPHONEOS_DEPLOYMENT_TARGET=15.0
+      - name: Package and verify IPA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/wda-build/Build/Products/Release-iphoneos/WebDriverAgentRunner-Runner.app"
+          test -d "$APP"
+          for PLIST in "$APP/Info.plist" "$APP/PlugIns/WebDriverAgentRunner.xctest/Info.plist"; do
+            plutil -replace NSPhotoLibraryAddUsageDescription -string 'Lara Studio ukladá fotky a videá do Galérie' "$PLIST"
+            plutil -replace UIFileSharingEnabled -bool true "$PLIST"
+            plutil -lint "$PLIST"
+          done
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          ditto "$APP" "$RUNNER_TEMP/package/Payload/WebDriverAgentRunner-Runner.app"
+          cd "$RUNNER_TEMP/package"
+          zip -qr "$GITHUB_WORKSPACE/WebDriverAgentRunner-Runner.ipa" Payload -x 'Payload/WebDriverAgentRunner-Runner.app/Frameworks/*'
+          cd "$GITHUB_WORKSPACE"
+          python3 Scripts/ci/verify-lara-ipa.py WebDriverAgentRunner-Runner.ipa
+          mkdir -p "$RUNNER_TEMP/v1"
+          gh release download v1 --repo "$GITHUB_REPOSITORY" -p WebDriverAgentRunner-Runner.ipa -D "$RUNNER_TEMP/v1"
+          python3 Scripts/ci/compare-lara-bundle-ids.py "$RUNNER_TEMP/v1/WebDriverAgentRunner-Runner.ipa" WebDriverAgentRunner-Runner.ipa
+          shasum -a 256 WebDriverAgentRunner-Runner.ipa > SHA256SUMS.txt
+      - name: Publish release with build version and SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=v2
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then TAG="$GITHUB_REF_NAME"; fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to overwrite it."
+            exit 1
+          fi
+          {
+            echo "Unsigned arm64 Lara WDA. Re-sign before installation."
+            echo
+            cat xcode-version.txt
+            echo
+            echo "Source: $GITHUB_SHA"
+            echo
+            echo "SHA256:"
+            cat SHA256SUMS.txt
+            echo
+            echo "Session defaults: waitForIdleTimeout=0, animationCoolOffTimeout=0, shouldWaitForQuiescence=false, useFirstMatch=true, snapshotMaxDepth=50, maxTypingFrequency=60 (typingFrequency alias)."
+            echo "Settings remain configurable through POST /session/:id/appium/settings."
+            echo
+            echo "Changed: /wda/tap and /wda/swipe use synthesized touch events; /wda/dragfromtoforduration removes post-event animation wait; /wda/keys retains batched synthesized typing with default 60 chars/s and validated string/array input. These three endpoints support both session-prefixed and sessionless paths."
+            echo "Both XCTest quiescence selectors are hooked; default pre/post-event idle waits are disabled. No signing identifiers changed; verified against the actual v1 IPA."
+            echo "POST /wda/saveToPhotos implementation, Photos linkage and privacy keys are unchanged."
+            echo
+            echo "Tap <1 s and a 100-character caption <2 s are targets, NOT measured results. Real iOS 26 device latency, Unicode, rotation and Photos regression testing remain required. See docs/lara-v2-fast-input.md."
+          } > release-notes.md
+          gh release create "$TAG" WebDriverAgentRunner-Runner.ipa SHA256SUMS.txt build-metadata.json \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Lara WDA $TAG — Fast input" --notes-file release-notes.md

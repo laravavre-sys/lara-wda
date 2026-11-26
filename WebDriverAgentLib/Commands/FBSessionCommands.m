@@ -279,6 +279,18 @@
 + (void)applyConfigurationFromCapabilities:(NSDictionary<NSString *, id> *)capabilities
 {
   [FBConfiguration.sharedInstance resetSessionSettings];
+  if (nil != capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE]) {
+    FBConfiguration.sharedInstance.shouldWaitForQuiescence = [capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE] boolValue];
+  }
+  if (nil != capabilities[FB_SETTING_ANIMATION_COOL_OFF_TIMEOUT]) {
+    FBConfiguration.sharedInstance.animationCoolOffTimeout = [capabilities[FB_SETTING_ANIMATION_COOL_OFF_TIMEOUT] doubleValue];
+  }
+  if (nil != capabilities[FB_SETTING_USE_FIRST_MATCH]) {
+    FBConfiguration.sharedInstance.useFirstMatch = [capabilities[FB_SETTING_USE_FIRST_MATCH] boolValue];
+  }
+  if (nil != capabilities[FB_SETTING_SNAPSHOT_MAX_DEPTH]) {
+    FBConfiguration.sharedInstance.snapshotMaxDepth = [capabilities[FB_SETTING_SNAPSHOT_MAX_DEPTH] intValue];
+  }
   if (capabilities[FB_SETTING_USE_COMPACT_RESPONSES]) {
     FBConfiguration.sharedInstance.shouldUseCompactResponses = [capabilities[FB_SETTING_USE_COMPACT_RESPONSES] boolValue];
   }
@@ -331,6 +343,7 @@
   }
 
   XCUIApplication *app = [[XCUIApplication alloc] initWithBundleIdentifier:(NSString * _Nonnull)bundleID];
+  app.fb_shouldWaitForQuiescence = FBConfiguration.sharedInstance.shouldWaitForQuiescence;
   BOOL forceAppLaunch = nil == capabilities[FB_CAP_FORCE_APP_LAUNCH]
     || [capabilities[FB_CAP_FORCE_APP_LAUNCH] boolValue];
   XCUIApplicationState appState = app.state;
@@ -362,8 +375,7 @@
                                          initialUrl:(nullable NSString *)initialUrl
                                        capabilities:(NSDictionary<NSString *, id> *)capabilities
 {
-  app.fb_shouldWaitForQuiescence = nil == capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE]
-    || [capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE] boolValue];
+  app.fb_shouldWaitForQuiescence = FBConfiguration.sharedInstance.shouldWaitForQuiescence;
   app.launchArguments = (NSArray<NSString *> *)capabilities[FB_CAP_ARGUMENTS] ?: @[];
   app.launchEnvironment = (NSDictionary<NSString *, NSString *> *)capabilities[FB_CAP_ENVIRNOMENT] ?: @{};
 

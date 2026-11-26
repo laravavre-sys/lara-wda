@@ -136,6 +136,20 @@ static NSSet<NSString *> *FBNilClearableSettingKeys(void)
     map[FB_SETTING_AUTO_CLICK_ALERT_SELECTOR] = ^FBCommandStatus *(FBSession *session, id value) {
       return [self configureAutoClickAlertWithSelector:(NSString *)value forSession:session];
     };
+    map[@"shouldWaitForQuiescence"] = ^FBCommandStatus *(FBSession *session, id value) {
+      if (![value isKindOfClass:NSNumber.class]) {
+        return [FBCommandStatus invalidArgumentErrorWithMessage:@"shouldWaitForQuiescence must be boolean" traceback:nil];
+      }
+      [session fb_setShouldWaitForQuiescence:[value boolValue]];
+      return nil;
+    };
+    map[@"typingFrequency"] = ^FBCommandStatus *(FBSession *session, id value) {
+      if (![value isKindOfClass:NSNumber.class] || [value integerValue] < 1 || [value integerValue] > 1000) {
+        return [FBCommandStatus invalidArgumentErrorWithMessage:@"typingFrequency must be 1..1000" traceback:nil];
+      }
+      FBConfiguration.sharedInstance.maxTypingFrequency = [value unsignedIntegerValue];
+      return nil;
+    };
     map[FB_SETTING_WAIT_FOR_IDLE_TIMEOUT] = ^FBCommandStatus *(FBSession *session, id value) {
       FBConfiguration.sharedInstance.waitForIdleTimeout = [value doubleValue];
       return nil;
@@ -267,6 +281,12 @@ static NSSet<NSString *> *FBNilClearableSettingKeys(void)
     };
     map[FB_SETTING_USE_FIRST_MATCH] = ^id(FBSession *session) {
       return @(FBConfiguration.sharedInstance.useFirstMatch);
+    };
+    map[@"shouldWaitForQuiescence"] = ^id(FBSession *session) {
+      return @(FBConfiguration.sharedInstance.shouldWaitForQuiescence);
+    };
+    map[@"typingFrequency"] = ^id(FBSession *session) {
+      return @(FBConfiguration.sharedInstance.maxTypingFrequency);
     };
     map[FB_SETTING_WAIT_FOR_IDLE_TIMEOUT] = ^id(FBSession *session) {
       return @(FBConfiguration.sharedInstance.waitForIdleTimeout);

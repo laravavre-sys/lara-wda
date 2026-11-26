@@ -233,10 +233,19 @@ static NSUInteger _committedTerminationCount = 0;
   return [identifier isEqualToString:session.identifier] ? session : nil;
 }
 
+- (void)fb_setShouldWaitForQuiescence:(BOOL)value
+{
+  FBConfiguration.sharedInstance.shouldWaitForQuiescence = value;
+  self.shouldAppsWaitForQuiescence = value;
+  self.testedApplication.fb_shouldWaitForQuiescence = value;
+  self.activeApplication.fb_shouldWaitForQuiescence = value;
+}
+
 + (instancetype)initWithApplication:(XCUIApplication *)application
 {
   FBSession *session = [FBSession new];
   session.useNativeCachingStrategy = YES;
+  session.shouldAppsWaitForQuiescence = FBConfiguration.sharedInstance.shouldWaitForQuiescence;
   session.alertsMonitor = nil;
   session.defaultAlertAction = nil;
   session.elementsVisibilityCache = [NSMutableDictionary dictionary];
@@ -422,7 +431,7 @@ static NSUInteger _committedTerminationCount = 0;
     // Iherit the quiescence check setting from the main app under test by default.
     // The first app under test of the session waits for quiescence, as it would on session startup
     app.fb_shouldWaitForQuiescence = nil == self.testedApplication
-      ? asApplicationUnderTest
+      ? (asApplicationUnderTest && FBConfiguration.sharedInstance.shouldWaitForQuiescence)
       : self.shouldAppsWaitForQuiescence;
   } else {
     app.fb_shouldWaitForQuiescence = [shouldWaitForQuiescence boolValue];

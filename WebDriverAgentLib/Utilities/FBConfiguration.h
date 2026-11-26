@@ -226,6 +226,9 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
  */
 @property (atomic, assign) NSTimeInterval waitForIdleTimeout;
 
+/*! Lara default: skip XCTest pre/post-event quiescence checks. */
+@property (atomic, assign) BOOL shouldWaitForQuiescence;
+
 /**
  * The idling timeout for different actions, for example events synthesis, rotation change,
  * etc. If the timeout expires then WDA tries to interact with the application even if it is not idling.

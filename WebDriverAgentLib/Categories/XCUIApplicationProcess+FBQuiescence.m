@@ -22,7 +22,7 @@ static void (*original_waitForQuiescenceIncludingAnimationsIdlePreEvent)(id, SEL
 static void swizzledWaitForQuiescenceIncludingAnimationsIdle(id self, SEL _cmd, BOOL includingAnimations)
 {
   NSString *bundleId = [self bundleID];
-  if (![[self fb_shouldWaitForQuiescence] boolValue] || FBConfiguration.sharedInstance.waitForIdleTimeout < DBL_EPSILON) {
+  if (!FBConfiguration.sharedInstance.shouldWaitForQuiescence || ![[self fb_shouldWaitForQuiescence] boolValue] || FBConfiguration.sharedInstance.waitForIdleTimeout < DBL_EPSILON) {
     [FBLogger logFmt:@"Quiescence checks are disabled for %@ application. Making it to believe it is idling",
      bundleId];
     return;
@@ -39,7 +39,7 @@ static void swizzledWaitForQuiescenceIncludingAnimationsIdle(id self, SEL _cmd, 
 static void swizzledWaitForQuiescenceIncludingAnimationsIdlePreEvent(id self, SEL _cmd, BOOL includingAnimations, BOOL isPreEvent)
 {
   NSString *bundleId = [self bundleID];
-  if (![[self fb_shouldWaitForQuiescence] boolValue] || FBConfiguration.sharedInstance.waitForIdleTimeout < DBL_EPSILON) {
+  if (!FBConfiguration.sharedInstance.shouldWaitForQuiescence || ![[self fb_shouldWaitForQuiescence] boolValue] || FBConfiguration.sharedInstance.waitForIdleTimeout < DBL_EPSILON) {
     [FBLogger logFmt:@"Quiescence checks are disabled for %@ application. Making it to believe it is idling",
      bundleId];
     return;
@@ -66,10 +66,12 @@ static void swizzledWaitForQuiescenceIncludingAnimationsIdlePreEvent(id self, SE
   if (nil != waitForQuiescenceIncludingAnimationsIdleMethod) {
     IMP swizzledImp = (IMP)swizzledWaitForQuiescenceIncludingAnimationsIdle;
     original_waitForQuiescenceIncludingAnimationsIdle = (void (*)(id, SEL, BOOL)) method_setImplementation(waitForQuiescenceIncludingAnimationsIdleMethod, swizzledImp);
-  } else if (nil != waitForQuiescenceIncludingAnimationsIdlePreEventMethod) {
+  }
+  if (nil != waitForQuiescenceIncludingAnimationsIdlePreEventMethod) {
     IMP swizzledImp = (IMP)swizzledWaitForQuiescenceIncludingAnimationsIdlePreEvent;
     original_waitForQuiescenceIncludingAnimationsIdlePreEvent = (void (*)(id, SEL, BOOL, BOOL)) method_setImplementation(waitForQuiescenceIncludingAnimationsIdlePreEventMethod, swizzledImp);
-  } else {
+  }
+  if (nil == waitForQuiescenceIncludingAnimationsIdleMethod && nil == waitForQuiescenceIncludingAnimationsIdlePreEventMethod) {
     [FBLogger log:@"Could not find method -[XCUIApplicationProcess waitForQuiescenceIncludingAnimationsIdle:]"];
   }
 }
@@ -84,7 +86,7 @@ static char XCUIAPPLICATIONPROCESS_SHOULD_WAIT_FOR_QUIESCENCE;
 {
   id result = objc_getAssociatedObject(self, &XCUIAPPLICATIONPROCESS_SHOULD_WAIT_FOR_QUIESCENCE);
   if (nil == result) {
-    return @(YES);
+    return @(FBConfiguration.sharedInstance.shouldWaitForQuiescence);
   }
   return (NSNumber *)result;
 }
